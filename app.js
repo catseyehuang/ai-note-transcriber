@@ -104,7 +104,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renameInput: document.getElementById('rename-input'),
     btnCloseRename: document.getElementById('btn-close-rename'),
     btnCancelRename: document.getElementById('btn-cancel-rename'),
-    btnConfirmRename: document.getElementById('btn-confirm-rename')
+    btnConfirmRename: document.getElementById('btn-confirm-rename'),
+
+    // Transcribe Modal & Controls
+    btnTranscribeAudio: document.getElementById('btn-transcribe-audio'),
+    transcribeModal: document.getElementById('transcribe-modal'),
+    transcribeResultTextarea: document.getElementById('transcribe-result-textarea'),
+    btnCloseTranscribe: document.getElementById('btn-close-transcribe'),
+    btnDiscardTranscribe: document.getElementById('btn-discard-transcribe'),
+    btnSaveTranscribe: document.getElementById('btn-save-transcribe')
   };
 
   // Canvas context
@@ -333,6 +341,129 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (e.key === 'Escape') {
       closeRenameModal();
     }
+  });
+
+  // --- Transcribe Audio Modal & Actions ---
+  const closeTranscribeModal = () => {
+    DOM.transcribeModal.classList.remove('active');
+  };
+
+  DOM.btnCloseTranscribe.addEventListener('click', closeTranscribeModal);
+  
+  DOM.btnDiscardTranscribe.addEventListener('click', () => {
+    if (confirm('確定要捨棄轉錄結果嗎？這將不會套用變更。')) {
+      closeTranscribeModal();
+    }
+  });
+  
+  DOM.transcribeModal.addEventListener('click', (e) => {
+    if (e.target === DOM.transcribeModal) {
+      closeTranscribeModal();
+    }
+  });
+
+  DOM.btnSaveTranscribe.addEventListener('click', () => {
+    const text = DOM.transcribeResultTextarea.value.trim();
+    if (!text) {
+      showToast('轉錄內容不能為空！', 'warning');
+      return;
+    }
+    
+    // Save and overwrite the main transcript input
+    DOM.transcriptTextarea.value = text;
+    
+    const session = getCurrentSession();
+    session.transcript = text;
+    
+    // Auto rename title if it is "新會話"
+    if (session.title === '新會話' && text.length > 0) {
+      session.title = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+    }
+    
+    saveSessions();
+    updateSidebarUI();
+    updateTextMetrics();
+    
+    closeTranscribeModal();
+    showToast('語音檔已成功轉錄並覆蓋原有逐字稿！', 'success');
+  });
+
+  DOM.btnTranscribeAudio.addEventListener('click', () => {
+    if (!state.apiKey) {
+      showToast('尚未設定 Gemini API Key！請點擊右上角進行設定。', 'warning');
+      DOM.apiConfigPanel.classList.remove('collapsed');
+      DOM.geminiApiKeyInput.focus();
+      return;
+    }
+
+    if (!state.audioBlob) {
+      showToast('無可用的錄音檔案！', 'warning');
+      return;
+    }
+
+    // Show loading indicator
+    DOM.aiLoadingOverlay.classList.remove('hidden');
+    DOM.loadingStatusText.textContent = 'AI 正在將錄音檔轉錄為逐字稿，這可能需要幾秒到半分鐘...';
+
+    const reader = new FileReader();
+    reader.readAsDataURL(state.audioBlob);
+    reader.onloadend = async () => {
+      const base64Data = reader.result.split(',')[1];
+      try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: state.audioBlob.type || 'audio/webm',
+                    data: base64Data
+                  }
+                },
+                {
+                  text: '請仔細聆聽這段音訊，將其轉錄為完整的繁體中文逐字稿。請直接輸出轉錄好的對話或演講文字，修正可能出現的語音識別錯別字與贅詞。請直接輸出內容，不要有任何 Markdown 外框、解釋或招呼語。'
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData?.error?.message || `HTTP 錯誤碼: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const transcription = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!transcription || transcription.trim() === '') {
+          throw new Error('Gemini API 未返回成功的轉錄內容。');
+        }
+
+        // Load content and display modal
+        DOM.transcribeResultTextarea.value = transcription;
+        DOM.transcribeModal.classList.add('active');
+        setTimeout(() => {
+          DOM.transcribeResultTextarea.focus();
+          DOM.transcribeResultTextarea.select();
+        }, 100);
+
+        showToast('轉錄完成！請編輯與保存。', 'success');
+      } catch (err) {
+        console.error('Audio transcribing failed:', err);
+        showToast(`轉錄失敗：${err.message}`, 'error');
+      } finally {
+        DOM.aiLoadingOverlay.classList.add('hidden');
+      }
+    };
   });
 
   DOM.btnToggleKeyVisibility.addEventListener('click', () => {
