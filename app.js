@@ -194,6 +194,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3500);
   }
 
+  // --- Robust API Fetch with Retry (handling 503 / 429) ---
+  async function fetchWithRetry(url, options, maxRetries = 2, delay = 2000) {
+    let attempts = 0;
+    while (attempts <= maxRetries) {
+      try {
+        const response = await fetch(url, options);
+        if (response.ok) {
+          return response;
+        }
+        
+        // Retry on 503 (high demand) or 429 (rate limits)
+        if (response.status === 503 || response.status === 429) {
+          attempts++;
+          if (attempts > maxRetries) {
+            return response; // No more retries, let caller handle error
+          }
+          
+          const waitSec = Math.round(delay / 1000);
+          console.warn(`Gemini API returned ${response.status}. Retrying in ${waitSec}s... (Attempt ${attempts}/${maxRetries})`);
+          
+          // Dynamically update UI status text if available
+          if (DOM.loadingStatusText) {
+            DOM.loadingStatusText.textContent = `API 伺服器繁忙 (錯誤碼 ${response.status})，將於 ${waitSec} 秒後重試... (第 ${attempts} 次)`;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2.5; // Exponential backoff
+          continue;
+        }
+        
+        return response; // Return other errors directly (e.g. 400, 404)
+      } catch (err) {
+        attempts++;
+        if (attempts > maxRetries) {
+          throw err;
+        }
+        console.warn(`Network error, retrying in ${delay / 1000}s...`, err);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2.5;
+      }
+    }
+  }
+
   // --- Canvas Waveform Rendering Helpers ---
   function resizeCanvas() {
     const rect = DOM.waveformCanvas.parentElement.getBoundingClientRect();
@@ -411,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const base64Data = reader.result.split(',')[1];
       try {
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
-        const response = await fetch(apiUrl, {
+        const response = await fetchWithRetry(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1008,7 +1051,7 @@ ${transcriptText}
       const fullPrompt = buildSystemPrompt();
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
       
-      const response = await fetch(apiUrl, {
+      const response = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
