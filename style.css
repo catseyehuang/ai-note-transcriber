@@ -535,6 +535,10 @@ body {
   animation: modal-enter var(--transition-normal) forwards;
 }
 
+.modal-content.modal-sm {
+  max-width: 420px;
+}
+
 @keyframes modal-enter {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }

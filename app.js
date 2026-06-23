@@ -31,7 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sessions list
     sessions: JSON.parse(localStorage.getItem('notes_assistant_sessions')) || [],
-    currentSessionId: localStorage.getItem('notes_assistant_current_session_id') || ''
+    currentSessionId: localStorage.getItem('notes_assistant_current_session_id') || '',
+    
+    // Active session being renamed
+    sessionToRename: null
   };
 
   // --- DOM Elements ---
@@ -94,7 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sidebar Session controls
     btnNewSession: document.getElementById('btn-new-session'),
-    sessionList: document.getElementById('session-list')
+    sessionList: document.getElementById('session-list'),
+    
+    // Rename Modal controls
+    renameModal: document.getElementById('rename-modal'),
+    renameInput: document.getElementById('rename-input'),
+    btnCloseRename: document.getElementById('btn-close-rename'),
+    btnCancelRename: document.getElementById('btn-cancel-rename'),
+    btnConfirmRename: document.getElementById('btn-confirm-rename')
   };
 
   // Canvas context
@@ -280,6 +290,48 @@ document.addEventListener('DOMContentLoaded', () => {
   DOM.helpModal.addEventListener('click', (e) => {
     if (e.target === DOM.helpModal) {
       DOM.helpModal.classList.remove('active');
+    }
+  });
+
+  // --- Rename Modal Actions ---
+  const closeRenameModal = () => {
+    DOM.renameModal.classList.remove('active');
+    state.sessionToRename = null;
+  };
+
+  DOM.btnCloseRename.addEventListener('click', closeRenameModal);
+  DOM.btnCancelRename.addEventListener('click', closeRenameModal);
+  
+  DOM.renameModal.addEventListener('click', (e) => {
+    if (e.target === DOM.renameModal) {
+      closeRenameModal();
+    }
+  });
+
+  const handleConfirmRename = () => {
+    const newTitle = DOM.renameInput.value.trim();
+    if (!newTitle) {
+      showToast('會話名稱不能為空！', 'warning');
+      return;
+    }
+    
+    if (state.sessionToRename) {
+      state.sessionToRename.title = newTitle;
+      saveSessions();
+      updateSidebarUI();
+      showToast('會話名稱已成功修改！', 'success');
+      closeRenameModal();
+    }
+  };
+
+  DOM.btnConfirmRename.addEventListener('click', handleConfirmRename);
+
+  DOM.renameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleConfirmRename();
+    } else if (e.key === 'Escape') {
+      closeRenameModal();
     }
   });
 
@@ -662,16 +714,16 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSessionToUI(session);
       });
 
-      // Double click to rename session
+      // Double click to rename session (custom modal)
       const sessionInfo = item.querySelector('.session-info');
       sessionInfo.addEventListener('dblclick', () => {
-        const newTitle = prompt('請輸入新的會話名稱：', session.title);
-        if (newTitle !== null && newTitle.trim() !== '') {
-          session.title = newTitle.trim();
-          saveSessions();
-          updateSidebarUI();
-          showToast('已修改會話名稱！', 'success');
-        }
+        state.sessionToRename = session;
+        DOM.renameInput.value = session.title;
+        DOM.renameModal.classList.add('active');
+        setTimeout(() => {
+          DOM.renameInput.focus();
+          DOM.renameInput.select();
+        }, 100);
       });
       
       // Delete session action

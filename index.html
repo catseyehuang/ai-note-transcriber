@@ -109,6 +109,26 @@
       </div>
     </div>
 
+    <!-- Rename Session Modal -->
+    <div id="rename-modal" class="modal">
+      <div class="modal-content card modal-sm">
+        <div class="modal-header">
+          <h3><i data-lucide="edit-3"></i> 修改會話名稱</h3>
+          <button id="btn-close-rename" class="btn btn-icon"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="rename-input">新的會話名稱</label>
+            <input type="text" id="rename-input" placeholder="例如：週會記錄 2026/06/23" autocomplete="off" />
+          </div>
+          <div class="modal-actions-row" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button id="btn-cancel-rename" class="btn btn-secondary">取消</button>
+            <button id="btn-confirm-rename" class="btn btn-primary">確認修改</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- App Body (Sidebar + Workspace Grid) -->
     <div class="app-body">
       <!-- Session History Sidebar -->
