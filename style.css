@@ -537,6 +537,27 @@ body {
 
 .modal-content.modal-sm {
   max-width: 420px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(124, 58, 237, 0.15);
+}
+
+#rename-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  transition: all var(--transition-fast);
+  margin-top: 0.35rem;
+}
+
+#rename-input:focus {
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.55);
 }
 
 @keyframes modal-enter {
