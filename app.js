@@ -631,7 +631,7 @@ ${transcriptText}
     
     try {
       const fullPrompt = buildSystemPrompt();
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
       
       const response = await fetch(apiUrl, {
         method: 'POST',
