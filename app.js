@@ -28,8 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
     audioUrl: null,
     activeTab: 'preview', // 'preview' | 'editor'
     apiKey: localStorage.getItem('notes_assistant_api_key') || '',
-    transcript: localStorage.getItem('notes_assistant_transcript') || '',
-    aiNotes: localStorage.getItem('notes_assistant_ai_notes') || ''
+    
+    // Sessions list
+    sessions: JSON.parse(localStorage.getItem('notes_assistant_sessions')) || [],
+    currentSessionId: localStorage.getItem('notes_assistant_current_session_id') || ''
   };
 
   // --- DOM Elements ---
@@ -70,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     metricChars: document.getElementById('metric-chars'),
     metricReadTime: document.getElementById('metric-read-time'),
     btnClearTranscript: document.getElementById('btn-clear-transcript'),
+    btnDownloadTranscript: document.getElementById('btn-download-transcript'),
     btnCopyTranscript: document.getElementById('btn-copy-transcript'),
     
     // AI Settings
@@ -87,12 +90,34 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingStatusText: document.getElementById('loading-status-text'),
     notesPreviewArea: document.getElementById('notes-preview-area'),
     notesEditorArea: document.getElementById('notes-editor-area'),
-    toastContainer: document.getElementById('toast-container')
+    toastContainer: document.getElementById('toast-container'),
+    
+    // Sidebar Session controls
+    btnNewSession: document.getElementById('btn-new-session'),
+    sessionList: document.getElementById('session-list')
   };
 
   // Canvas context
   const canvasCtx = DOM.waveformCanvas.getContext('2d');
   
+  // --- Initialize Session list ---
+  if (state.sessions.length === 0) {
+    const defaultSession = {
+      id: 'session_' + Date.now(),
+      title: '新會話',
+      transcript: '',
+      aiNotes: '',
+      style: 'structured',
+      customInstruction: '',
+      created: Date.now()
+    };
+    state.sessions.push(defaultSession);
+    state.currentSessionId = defaultSession.id;
+    saveSessions();
+  } else if (!state.sessions.some(s => s.id === state.currentSessionId)) {
+    state.currentSessionId = state.sessions[0].id;
+  }
+
   // --- Initialize App UI from Saved State ---
   if (state.apiKey) {
     DOM.geminiApiKeyInput.value = state.apiKey;
@@ -101,15 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateApiStatusUI(false);
   }
 
-  if (state.transcript) {
-    DOM.transcriptTextarea.value = state.transcript;
-    updateTextMetrics();
-  }
+  // Load active session data
+  loadSessionToUI(getCurrentSession());
 
-  if (state.aiNotes) {
-    DOM.notesEditorArea.value = state.aiNotes;
-    renderMarkdownNotes(state.aiNotes);
-  }
+  // Render sidebar
+  updateSidebarUI();
 
   // Set initial canvas size
   resizeCanvas();
@@ -471,9 +492,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Real-time Transcription & Stats ---
   DOM.transcriptTextarea.addEventListener('input', () => {
     const text = DOM.transcriptTextarea.value;
-    state.transcript = text;
-    localStorage.setItem('notes_assistant_transcript', text);
+    const session = getCurrentSession();
+    session.transcript = text;
     
+    // Auto rename title if it was default "新會話"
+    if (session.title === '新會話' && text.trim().length > 0) {
+      session.title = text.trim().substring(0, 15) + (text.trim().length > 15 ? '...' : '');
+    }
+    
+    saveSessions();
+    updateSidebarUI();
     updateTextMetrics();
     triggerAutoSaveIndicator();
   });
@@ -512,10 +540,12 @@ document.addEventListener('DOMContentLoaded', () => {
   DOM.btnClearTranscript.addEventListener('click', () => {
     if (!DOM.transcriptTextarea.value.trim()) return;
     
-    if (confirm('確定要清空目前的課堂逐字稿嗎？本動作無法復原。')) {
+    if (confirm('確定要清空目前的逐字稿嗎？本動作無法復原。')) {
       DOM.transcriptTextarea.value = '';
-      state.transcript = '';
-      localStorage.removeItem('notes_assistant_transcript');
+      const session = getCurrentSession();
+      session.transcript = '';
+      saveSessions();
+      updateSidebarUI();
       updateTextMetrics();
       showToast('已清空逐字稿。', 'warning');
     }
@@ -533,14 +563,163 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => showToast('複製失敗，請手動複製。', 'error'));
   });
 
+  // Download raw transcript
+  DOM.btnDownloadTranscript.addEventListener('click', () => {
+    const text = DOM.transcriptTextarea.value.trim();
+    if (!text) {
+      showToast('無逐字稿內容可下載！', 'warning');
+      return;
+    }
+    
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${getCurrentSession().title}_逐字稿_${getFormattedDate()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    showToast('已下載逐字稿檔案 (.txt)。', 'success');
+  });
+
+  // Track style selector changes
+  DOM.selectNoteStyle.addEventListener('change', () => {
+    const session = getCurrentSession();
+    session.style = DOM.selectNoteStyle.value;
+    saveSessions();
+  });
+
+  // Track custom instructions input
+  DOM.customInstruction.addEventListener('input', () => {
+    const session = getCurrentSession();
+    session.customInstruction = DOM.customInstruction.value;
+    saveSessions();
+  });
+
+  // --- Session Management Functions ---
+  function getCurrentSession() {
+    return state.sessions.find(s => s.id === state.currentSessionId) || state.sessions[0];
+  }
+
+  function saveSessions() {
+    localStorage.setItem('notes_assistant_sessions', JSON.stringify(state.sessions));
+    localStorage.setItem('notes_assistant_current_session_id', state.currentSessionId);
+  }
+
+  function loadSessionToUI(session) {
+    DOM.transcriptTextarea.value = session.transcript;
+    DOM.notesEditorArea.value = session.aiNotes;
+    DOM.selectNoteStyle.value = session.style || 'structured';
+    DOM.customInstruction.value = session.customInstruction || '';
+    
+    // Reset local audio playback state
+    DOM.audioPlaybackContainer.classList.add('hidden');
+    DOM.audioPlayer.src = '';
+    
+    updateTextMetrics();
+    renderMarkdownNotes(session.aiNotes);
+    updateSidebarUI();
+  }
+
+  function updateSidebarUI() {
+    if (!DOM.sessionList) return;
+    DOM.sessionList.innerHTML = '';
+    
+    state.sessions.forEach(session => {
+      const item = document.createElement('div');
+      item.className = `session-item ${session.id === state.currentSessionId ? 'active' : ''}`;
+      item.setAttribute('data-id', session.id);
+      
+      const dateStr = new Date(session.created).toLocaleString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      item.innerHTML = `
+        <div class="session-info">
+          <span class="session-title" title="${escapeHTML(session.title)}">${escapeHTML(session.title)}</span>
+          <span class="session-date">${dateStr}</span>
+        </div>
+        <button class="btn-delete-session" title="刪除會話">
+          <i data-lucide="trash-2"></i>
+        </button>
+      `;
+      
+      // Click session to load
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-delete-session')) return;
+        state.currentSessionId = session.id;
+        saveSessions();
+        loadSessionToUI(session);
+      });
+      
+      // Delete session action
+      const btnDelete = item.querySelector('.btn-delete-session');
+      btnDelete.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (state.sessions.length <= 1) {
+          showToast('必須保留至少一個會話！', 'warning');
+          return;
+        }
+        
+        if (confirm(`確定要刪除「${session.title}」這個會話紀錄嗎？`)) {
+          state.sessions = state.sessions.filter(s => s.id !== session.id);
+          if (state.currentSessionId === session.id) {
+            state.currentSessionId = state.sessions[0].id;
+          }
+          saveSessions();
+          loadSessionToUI(getCurrentSession());
+        }
+      });
+      
+      DOM.sessionList.appendChild(item);
+    });
+    
+    lucide.createIcons();
+  }
+
+  // Create new session
+  DOM.btnNewSession.addEventListener('click', () => {
+    const newSession = {
+      id: 'session_' + Date.now(),
+      title: '新會話',
+      transcript: '',
+      aiNotes: '',
+      style: 'structured',
+      customInstruction: '',
+      created: Date.now()
+    };
+    
+    state.sessions.unshift(newSession);
+    state.currentSessionId = newSession.id;
+    saveSessions();
+    loadSessionToUI(newSession);
+    showToast('已建立新會話！請開始錄音或聽寫。', 'success');
+  });
+
+  function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+      tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+  }
+
   // --- AI Note Generation & Direct API Hook ---
   
   // Styling Prompts
   const prompts = {
-    structured: '系統化課堂筆記格式。包含：前言/背景、核心概念拆解說明（多用條列與加粗重點）、細節整理與結構、課堂結論與大意、以及後續的實踐或思考行動計畫。',
-    summary: '精簡摘要。包含：一句話概括課程重點、核心重點精華整理（控制在 3-5 大重點）、重點補充、關鍵問題解答。',
-    mindmap: '心智圖大綱格式。請利用 Markdown 的標題階層（#, ##, ###）與無序清單（-，搭配適當的兩格空白縮排）展現課程的邏輯知識樹，從粗到細描述概念，不要有大段冗長文字。',
-    qa: '課堂複習卡與重點 Q&A。請將逐字稿轉換為問答卡片格式，包含：常見重點問答 (Q&A，至少 5 個)、核心名詞與定義解釋閃卡、自我評量練習題 (包含簡答提示)。'
+    structured: '系統化整理筆記。包含：前言/背景、核心概念拆解說明（多用條列與加粗重點）、細節整理與結構、結論與大意、以及後續的實踐或思考行動計畫。',
+    meeting: '專業會議記錄。請整理成包含以下項目的標準會議紀要：\n1. 會議基本資訊 (時間、主題，若逐字稿未提及請留空)\n2. 會議摘要：用簡短的段落說明會議主要目的與討論範疇\n3. 決議事項：條列說明會議中達成的共識、定案內容與決議方案\n4. 待辦與追蹤事項：列出後續行動清單，並用任務清單格式（- [ ]）呈現執行項目與指派對象(若有)。',
+    summary: '精簡摘要。包含：一句話概括主要重點、核心重點精華整理（控制在 3-5 大重點）、重點補充、關鍵問題解答。',
+    mindmap: '心智圖大綱格式。請利用 Markdown 的標題階層（#, ##, ###）與無序清單（-，搭配適當的兩格空白縮排）展現邏輯知識樹，從粗到細描述概念，不要有大段冗長文字。',
+    qa: '重點 Q&A 與概念複習。請將內容轉換為問答卡片格式，包含：常見重點問答 (Q&A，至少 5 個)、核心名詞與定義解釋閃卡、自我評量練習題 (包含簡答提示)。'
   };
 
   // Generate prompt text helper
@@ -550,11 +729,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const customInstr = DOM.customInstruction.value.trim();
     const transcriptText = DOM.transcriptTextarea.value.trim();
     
-    return `你是一個專業的課堂學習與筆記管理助手。請將以下課堂語音轉文字 (Windows+H) 的逐字稿整理成結構化、美觀易讀的學習筆記。
+    return `你是一個專業的智慧學習與工作筆記管理助手。請將以下語音轉文字的逐字稿整理成結構化、美觀易讀的智慧筆記。
 請遵循以下黃金指南：
 1. 請使用【繁體中文】回答。
 2. 筆記必須採用標準的 Markdown 語法，排版需優雅乾淨，適合直接複製並貼入 Notion 筆記。
-3. 修正逐字稿中因為語音辨識出錯而產生的錯別字、贅字或不通順的口語（例如把「然後」、「那」等口頭禪修飾掉，校正專業術語拼寫），在維持講者原意下提升文字可讀性。
+3. 修正逐字稿中因為語音辨識出錯而產生的錯別字、贅字或不通順的口語（例如把口頭禪修飾掉，校正專業術語拼寫），在維持發言者原意下提升文字可讀性。
 4. 使用清晰的標題階層（## 代表大主題，### 代表子主題，避免過度使用 # 單一井號）。
 5. 善用粗體、斜體、條列清單、任務清單（- [ ]）、區塊引言（>）以及 Markdown 表格來呈現資訊，使版面豐富有層次。
 6. 對於逐字稿中提到的重要觀念或專有名詞，請為其加上簡短的解釋（可以使用 > 區塊引言或粗體標記）。
@@ -562,11 +741,11 @@ document.addEventListener('DOMContentLoaded', () => {
    📌 筆記風格需求：${styleDescription}
 
 ${customInstr ? `8. 使用者附加特別指示：${customInstr}\n` : ''}
-【課堂逐字稿開始】
+【逐字稿開始】
 ${transcriptText}
-【課堂逐字稿結束】
+【逐字稿結束】
 
-整理後的 Markdown 學習筆記：`;
+整理後的 Markdown 智慧筆記：`;
   }
 
   // Copy AI Prompt Mode (For manual use)
@@ -597,7 +776,7 @@ ${transcriptText}
   DOM.btnGenerateNotes.addEventListener('click', async () => {
     const transcriptText = DOM.transcriptTextarea.value.trim();
     if (!transcriptText) {
-      showToast('請先輸入或語音錄製課堂逐字稿！', 'warning');
+      showToast('請先輸入或語音錄製逐字稿！', 'warning');
       return;
     }
     
@@ -666,8 +845,10 @@ ${transcriptText}
       }
       
       // Save results
-      state.aiNotes = aiNotesResult;
-      localStorage.setItem('notes_assistant_ai_notes', aiNotesResult);
+      const session = getCurrentSession();
+      session.aiNotes = aiNotesResult;
+      saveSessions();
+      
       DOM.notesEditorArea.value = aiNotesResult;
       
       // Render
@@ -704,8 +885,9 @@ ${transcriptText}
       
       // Compile raw editor content back to preview just in case it was updated
       const rawText = DOM.notesEditorArea.value;
-      state.aiNotes = rawText;
-      localStorage.setItem('notes_assistant_ai_notes', rawText);
+      const session = getCurrentSession();
+      session.aiNotes = rawText;
+      saveSessions();
       renderMarkdownNotes(rawText);
       
       DOM.notesPreviewArea.classList.remove('hidden');
@@ -754,8 +936,9 @@ ${transcriptText}
 
   // Monitor edits in Editor area to auto-save
   DOM.notesEditorArea.addEventListener('input', () => {
-    state.aiNotes = DOM.notesEditorArea.value;
-    localStorage.setItem('notes_assistant_ai_notes', state.aiNotes);
+    const session = getCurrentSession();
+    session.aiNotes = DOM.notesEditorArea.value;
+    saveSessions();
   });
 
   // --- Clipboard Copy & File Download Actions ---

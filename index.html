@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 課堂學習筆記助理 - Notion 友善</title>
+  <title>AI 筆記助理 - Notion 智慧筆記</title>
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,8 +33,8 @@
           <i data-lucide="sparkles"></i>
         </div>
         <div>
-          <h1>AI 課堂學習筆記助理</h1>
-          <p class="subtitle">將課堂音訊與 Windows 聽寫 (Win+H) 轉換為 Notion 美觀筆記</p>
+          <h1>AI 筆記助理</h1>
+          <p class="subtitle">將現場音訊與逐字稿聽寫轉換成智慧筆記</p>
         </div>
       </div>
       
@@ -89,28 +89,43 @@
         <div class="modal-body">
           <ol class="help-steps">
             <li>
-              <strong>錄製音訊（可選）：</strong>
-              <p>在左側的錄音控制區，點選「開始錄音」以錄製課堂現場聲音。這可以作為您課後重聽與溫習的音訊備份。</p>
+              <strong>錄製現場音訊（可選）：</strong>
+              <p>在左側的錄音控制區，點選「開始錄音」以錄製現場聲音，做為重聽與存檔備份。</p>
             </li>
             <li>
-              <strong>啟動 Windows 語音輸入（核心）：</strong>
-              <p>點擊左下角的「課堂逐字稿輸入框」，使其處於輸入狀態。接著按下鍵盤的 <code>Windows 鍵 + H</code>，啟動 Windows 系統內建的語音聽寫功能。開始上課後，電腦就會自動將聽到的聲音轉化為文字打入框中。</p>
+              <strong>啟動語音輸入（核心）：</strong>
+              <p>點擊左下角的「即時逐字稿聽寫」輸入區。Windows 使用者請按 <code>Win + H</code> 鍵；Mac 使用者請連按兩下 <code>Control</code> 鍵或按一次 <code>🌐</code> 鍵啟動系統聽寫。隨即開始將現場聲音即時轉化為文字。</p>
             </li>
             <li>
               <strong>AI 整理與預覽：</strong>
-              <p>錄音結束後，選擇您想要的「筆記風格」，點擊「透過 AI 整理筆記」。AI 會自動將粗糙的語音文字重新梳理，產生排版優美的 Markdown 筆記。</p>
+              <p>錄音結束後，選擇您想要的「筆記風格」（如會議記錄、系統化筆記），點擊「透過 AI 整理筆記」。AI 會自動將粗糙的文字重新梳理，產生排版優美的 Markdown 筆記。</p>
             </li>
             <li>
               <strong>匯出至 Notion：</strong>
-              <p>點選右下角的「複製筆記」，然後在您的 Notion 頁面中直接按下 <code>Ctrl + V</code> 貼上，Notion 會自動將 Markdown 解析為漂亮的區塊樣式！</p>
+              <p>點選右下角的「複製至 Notion」，然後在您的 Notion 頁面中直接按下 <code>Ctrl + V</code> 貼上，Notion 會自動將 Markdown 解析為漂亮的區塊樣式！</p>
             </li>
           </ol>
         </div>
       </div>
     </div>
 
-    <!-- Main Workspace Grid -->
-    <main class="workspace-grid">
+    <!-- App Body (Sidebar + Workspace Grid) -->
+    <div class="app-body">
+      <!-- Session History Sidebar -->
+      <aside class="sidebar card" id="sidebar-panel">
+        <div class="sidebar-header">
+          <h3><i data-lucide="history"></i> 會話歷史</h3>
+          <button id="btn-new-session" class="btn btn-primary btn-sm btn-full" title="開啟新的會話紀錄">
+            <i data-lucide="plus"></i> 新增會話
+          </button>
+        </div>
+        <div class="sidebar-body" id="session-list">
+          <!-- 會話列表將由 JavaScript 動態載入 -->
+        </div>
+      </aside>
+
+      <!-- Main Workspace Grid -->
+      <main class="workspace-grid">
       
       <!-- Left Column: Audio Recording & Transcription Input -->
       <div class="workspace-col col-left">
@@ -119,7 +134,7 @@
         <section class="card recorder-card" aria-labelledby="recorder-title">
           <div class="card-header">
             <h2 id="recorder-title" class="card-title">
-              <i data-lucide="mic"></i> 課堂現場錄音
+              <i data-lucide="mic"></i> 現場音訊錄製
             </h2>
             <div class="rec-status-badge" id="recorder-status">
               <span class="status-dot"></span> <span id="recorder-status-text">未開始</span>
@@ -149,7 +164,7 @@
             <!-- Download & Playback Controls (Shown after stop) -->
             <div id="audio-playback-container" class="playback-container hidden">
               <div class="playback-info">
-                <span class="playback-title"><i data-lucide="file-audio"></i> 課堂錄音檔已就緒</span>
+                <span class="playback-title"><i data-lucide="file-audio"></i> 音訊檔案已就緒</span>
                 <span id="audio-file-size" class="playback-size">0.0 MB</span>
               </div>
               <div class="playback-controls">
@@ -166,7 +181,7 @@
         <section class="card transcript-card" aria-labelledby="transcript-title">
           <div class="card-header">
             <h2 id="transcript-title" class="card-title">
-              <i data-lucide="file-text"></i> 課堂即時逐字稿
+              <i data-lucide="file-text"></i> 即時逐字稿聽寫
             </h2>
             <span class="save-status" id="save-status-text">
               <i data-lucide="check-circle-2"></i> 已自動存檔
@@ -178,15 +193,14 @@
             <div class="dictation-notice" id="dictation-notice-banner">
               <i data-lucide="keyboard" class="notice-icon"></i>
               <div class="notice-text">
-                <strong>點選下方文字區並按下 <kbd>⊞ Win</kbd> + <kbd>H</kbd> 啟動 Windows 語音輸入</strong>
-                <span>系統會將上課說話聲即時打字至框中。</span>
+                <strong>點選下方文字區啟動語音輸入：</strong>
+                <span>Windows 請按 <kbd>⊞ Win</kbd> + <kbd>H</kbd> | Mac 請連按兩下 <kbd>Control</kbd> 鍵 (或按一次 <kbd>🌐</kbd> 鍵)</span>
               </div>
             </div>
             
-            <!-- Real-time Text Area -->
-            <textarea id="transcript-textarea" placeholder="上課的語音聽寫文字將會顯示在這裡...
+            <textarea id="transcript-textarea" placeholder="語音聽寫文字將會顯示在這裡...
 
-請先點擊此處，然後按下鍵盤的 「Windows 鍵 + H」，並開始語音聽寫。" aria-label="課堂即時逐字稿內容"></textarea>
+請先點擊此處，Windows 使用者請按下 「Win + H」鍵；Mac 使用者請連按兩下「Control」鍵或按一次「🌐」鍵開始語音聽寫。" aria-label="即時逐字稿內容"></textarea>
             
             <!-- Text area footer metrics -->
             <div class="transcript-footer">
@@ -199,6 +213,9 @@
               <div class="transcript-actions">
                 <button id="btn-clear-transcript" class="btn btn-text btn-danger-text" title="清空文字">
                   <i data-lucide="trash-2"></i> 清空
+                </button>
+                <button id="btn-download-transcript" class="btn btn-secondary btn-sm" title="下載逐字稿檔案 (.txt)">
+                  <i data-lucide="download"></i> 下載
                 </button>
                 <button id="btn-copy-transcript" class="btn btn-secondary btn-sm" title="複製原始逐字稿">
                   <i data-lucide="copy"></i> 複製原始稿
@@ -216,7 +233,7 @@
         <section class="card ai-card" aria-labelledby="ai-title">
           <div class="card-header">
             <h2 id="ai-title" class="card-title">
-              <i data-lucide="wand-2"></i> AI 學習筆記生成
+              <i data-lucide="wand-2"></i> AI 智慧筆記生成
             </h2>
           </div>
           
@@ -228,7 +245,8 @@
                 <label for="select-note-style">筆記風格</label>
                 <div class="select-wrapper">
                   <select id="select-note-style">
-                    <option value="structured" selected>系統化學習筆記 (推薦，條理分明)</option>
+                    <option value="structured" selected>系統化筆記整理 (推薦，條理分明)</option>
+                    <option value="meeting">會議記錄與決議事項 (包含決議與待辦)</option>
                     <option value="summary">精簡摘要與精華整理</option>
                     <option value="mindmap">心智圖大綱格式</option>
                     <option value="qa">重點 Q&A 與概念複習</option>
@@ -282,16 +300,15 @@
                 <div class="spinner"></div>
                 <div class="pulse-ring"></div>
               </div>
-              <p id="loading-status-text">AI 正在努力整理您的課堂筆記...</p>
+              <p id="loading-status-text">AI 正在努力整理您的智慧筆記...</p>
               <span class="loading-subtext">預估需要 10 - 20 秒</span>
             </div>
 
-            <!-- Rendered Markdown Preview Area -->
             <div id="notes-preview-area" class="markdown-preview-content markdown-body">
               <div class="empty-preview">
                 <i data-lucide="file-edit"></i>
                 <h3>尚未生成筆記</h3>
-                <p>在左側輸入或錄製逐字稿，然後點選上面的「透過 AI 整理筆記」按鈕，精美的 Markdown 學習筆記將會在此呈現。</p>
+                <p>在左側輸入或錄製逐字稿，然後點選上面的「透過 AI 整理筆記」按鈕，精美的 Markdown 智慧筆記將會在此呈現。</p>
               </div>
             </div>
 
@@ -302,7 +319,8 @@
 
       </div>
     </main>
-  </div>
+    </div> <!-- End of app-body -->
+  </div> <!-- End of app-container -->
 
   <!-- Toast Notification System -->
   <div id="toast-container" class="toast-container"></div>
