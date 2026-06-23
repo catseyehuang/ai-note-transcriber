@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 課堂學習筆記助理 - Notion 友善</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Marked Markdown Parser (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  
+  <!-- Background Glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <div class="logo-icon">
+          <i data-lucide="sparkles"></i>
+        </div>
+        <div>
+          <h1>AI 課堂學習筆記助理</h1>
+          <p class="subtitle">將課堂音訊與 Windows 聽寫 (Win+H) 轉換為 Notion 美觀筆記</p>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <!-- API Config Button -->
+        <button id="btn-toggle-config" class="btn btn-secondary" title="設定 Gemini API Key">
+          <i data-lucide="key-round"></i>
+          <span>Gemini API 設定</span>
+        </button>
+        <!-- Info Help Button -->
+        <button id="btn-toggle-help" class="btn btn-icon" title="使用說明">
+          <i data-lucide="help-circle"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- API Config Drawer / Card (Collapsible) -->
+    <section id="api-config-panel" class="config-panel collapsed">
+      <div class="config-content card">
+        <div class="config-header">
+          <h3><i data-lucide="settings"></i> Gemini API 金鑰配置</h3>
+          <p>您的金鑰會安全地存在本機瀏覽器中，不經由任何第三方伺服器傳輸。</p>
+        </div>
+        <div class="config-body">
+          <div class="input-group">
+            <label for="gemini-api-key">Gemini API Key</label>
+            <div class="input-with-icon">
+              <i data-lucide="key-round" class="input-icon"></i>
+              <input type="password" id="gemini-api-key" placeholder="輸入 AIzaSy... 開頭的 API 金鑰" />
+              <button id="btn-toggle-key-visibility" class="btn btn-icon btn-inside" title="顯示/隱藏金鑰">
+                <i data-lucide="eye" id="eye-icon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="config-actions">
+            <span class="api-status status-unconfigured" id="api-status-text">
+              <span class="status-dot"></span> 未設定金鑰（僅可使用「複製提示詞」手動模式）
+            </span>
+            <button id="btn-save-api-key" class="btn btn-primary">儲存設定</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Help Modal Overlay -->
+    <div id="help-modal" class="modal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h3><i data-lucide="info"></i> 快速上手指南</h3>
+          <button id="btn-close-help" class="btn btn-icon"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+          <ol class="help-steps">
+            <li>
+              <strong>錄製音訊（可選）：</strong>
+              <p>在左側的錄音控制區，點選「開始錄音」以錄製課堂現場聲音。這可以作為您課後重聽與溫習的音訊備份。</p>
+            </li>
+            <li>
+              <strong>啟動 Windows 語音輸入（核心）：</strong>
+              <p>點擊左下角的「課堂逐字稿輸入框」，使其處於輸入狀態。接著按下鍵盤的 <code>Windows 鍵 + H</code>，啟動 Windows 系統內建的語音聽寫功能。開始上課後，電腦就會自動將聽到的聲音轉化為文字打入框中。</p>
+            </li>
+            <li>
+              <strong>AI 整理與預覽：</strong>
+              <p>錄音結束後，選擇您想要的「筆記風格」，點擊「透過 AI 整理筆記」。AI 會自動將粗糙的語音文字重新梳理，產生排版優美的 Markdown 筆記。</p>
+            </li>
+            <li>
+              <strong>匯出至 Notion：</strong>
+              <p>點選右下角的「複製筆記」，然後在您的 Notion 頁面中直接按下 <code>Ctrl + V</code> 貼上，Notion 會自動將 Markdown 解析為漂亮的區塊樣式！</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <main class="workspace-grid">
+      
+      <!-- Left Column: Audio Recording & Transcription Input -->
+      <div class="workspace-col col-left">
+        
+        <!-- Audio Recorder Card -->
+        <section class="card recorder-card" aria-labelledby="recorder-title">
+          <div class="card-header">
+            <h2 id="recorder-title" class="card-title">
+              <i data-lucide="mic"></i> 課堂現場錄音
+            </h2>
+            <div class="rec-status-badge" id="recorder-status">
+              <span class="status-dot"></span> <span id="recorder-status-text">未開始</span>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <!-- Audio Waveform Visualizer -->
+            <div class="visualizer-container">
+              <canvas id="waveform-canvas"></canvas>
+              <div id="recording-timer" class="timer">00:00:00</div>
+            </div>
+            
+            <!-- Audio Recorder Controls -->
+            <div class="recorder-controls">
+              <button id="btn-start-record" class="btn btn-record" title="開始錄音">
+                <i data-lucide="play"></i> 開始錄音
+              </button>
+              <button id="btn-pause-record" class="btn btn-warning" title="暫停錄音" disabled>
+                <i data-lucide="pause"></i> 暫停
+              </button>
+              <button id="btn-stop-record" class="btn btn-danger" title="停止並存檔" disabled>
+                <i data-lucide="square"></i> 結束錄音
+              </button>
+            </div>
+
+            <!-- Download & Playback Controls (Shown after stop) -->
+            <div id="audio-playback-container" class="playback-container hidden">
+              <div class="playback-info">
+                <span class="playback-title"><i data-lucide="file-audio"></i> 課堂錄音檔已就緒</span>
+                <span id="audio-file-size" class="playback-size">0.0 MB</span>
+              </div>
+              <div class="playback-controls">
+                <audio id="audio-player" controls></audio>
+                <a id="btn-download-audio" class="btn btn-secondary btn-icon-only" title="下載錄音檔 (.webm)">
+                  <i data-lucide="download"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Transcription Text Area Card -->
+        <section class="card transcript-card" aria-labelledby="transcript-title">
+          <div class="card-header">
+            <h2 id="transcript-title" class="card-title">
+              <i data-lucide="file-text"></i> 課堂即時逐字稿
+            </h2>
+            <span class="save-status" id="save-status-text">
+              <i data-lucide="check-circle-2"></i> 已自動存檔
+            </span>
+          </div>
+          
+          <div class="card-body flex-grow">
+            <!-- Win+H Dictation Notice Banner -->
+            <div class="dictation-notice" id="dictation-notice-banner">
+              <i data-lucide="keyboard" class="notice-icon"></i>
+              <div class="notice-text">
+                <strong>點選下方文字區並按下 <kbd>⊞ Win</kbd> + <kbd>H</kbd> 啟動 Windows 語音輸入</strong>
+                <span>系統會將上課說話聲即時打字至框中。</span>
+              </div>
+            </div>
+            
+            <!-- Real-time Text Area -->
+            <textarea id="transcript-textarea" placeholder="上課的語音聽寫文字將會顯示在這裡...
+
+請先點擊此處，然後按下鍵盤的 「Windows 鍵 + H」，並開始語音聽寫。" aria-label="課堂即時逐字稿內容"></textarea>
+            
+            <!-- Text area footer metrics -->
+            <div class="transcript-footer">
+              <div class="text-metrics">
+                <span>字數: <strong id="metric-chars">0</strong> 字</span>
+                <span class="metric-divider">|</span>
+                <span>估計閱讀時間: <strong id="metric-read-time">0</strong> 分鐘</span>
+              </div>
+              
+              <div class="transcript-actions">
+                <button id="btn-clear-transcript" class="btn btn-text btn-danger-text" title="清空文字">
+                  <i data-lucide="trash-2"></i> 清空
+                </button>
+                <button id="btn-copy-transcript" class="btn btn-secondary btn-sm" title="複製原始逐字稿">
+                  <i data-lucide="copy"></i> 複製原始稿
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Column: AI Processing & Markdown Review -->
+      <div class="workspace-col col-right">
+        
+        <!-- AI Setting Card -->
+        <section class="card ai-card" aria-labelledby="ai-title">
+          <div class="card-header">
+            <h2 id="ai-title" class="card-title">
+              <i data-lucide="wand-2"></i> AI 學習筆記生成
+            </h2>
+          </div>
+          
+          <div class="card-body">
+            <div class="ai-controls-grid">
+              
+              <!-- Style Selector -->
+              <div class="input-group">
+                <label for="select-note-style">筆記風格</label>
+                <div class="select-wrapper">
+                  <select id="select-note-style">
+                    <option value="structured" selected>系統化學習筆記 (推薦，條理分明)</option>
+                    <option value="summary">精簡摘要與精華整理</option>
+                    <option value="mindmap">心智圖大綱格式</option>
+                    <option value="qa">重點 Q&A 與概念複習</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="select-chevron"></i>
+                </div>
+              </div>
+
+              <!-- Custom Instructions -->
+              <div class="input-group">
+                <label for="custom-instruction">附加指示詞（選填，例如：以中文回答、特別標記公式）</label>
+                <input type="text" id="custom-instruction" placeholder="例如：多使用條列式、補充相關的歷史背景、加強重點粗體" />
+              </div>
+
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="ai-actions-row">
+              <button id="btn-copy-prompt" class="btn btn-secondary" title="將逐字稿與 AI 提示詞一併複製，手動貼入 ChatGPT/Gemini">
+                <i data-lucide="copy-check"></i> 複製 AI 提示詞
+              </button>
+              <button id="btn-generate-notes" class="btn btn-primary btn-glow-active" title="直接呼叫 Gemini API 生成">
+                <i data-lucide="cpu"></i> 透過 AI 整理筆記
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Markdown Preview Card -->
+        <section class="card preview-card flex-grow" aria-labelledby="preview-title">
+          <div class="card-header preview-header-tabs">
+            <div class="preview-tabs">
+              <button id="tab-preview" class="tab-btn active"><i data-lucide="eye"></i> 筆記預覽</button>
+              <button id="tab-editor" class="tab-btn"><i data-lucide="code-2"></i> 編輯 Markdown</button>
+            </div>
+            
+            <div class="preview-actions">
+              <button id="btn-copy-notes" class="btn btn-success btn-sm" title="複製 Markdown，適合直接貼入 Notion">
+                <i data-lucide="clipboard-copy"></i> 複製至 Notion
+              </button>
+              <button id="btn-download-notes" class="btn btn-secondary btn-icon-only" title="下載 .md 檔案">
+                <i data-lucide="download"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body preview-body-container">
+            <!-- Loading Indicator -->
+            <div id="ai-loading-overlay" class="loading-overlay hidden">
+              <div class="loading-spinner-container">
+                <div class="spinner"></div>
+                <div class="pulse-ring"></div>
+              </div>
+              <p id="loading-status-text">AI 正在努力整理您的課堂筆記...</p>
+              <span class="loading-subtext">預估需要 10 - 20 秒</span>
+            </div>
+
+            <!-- Rendered Markdown Preview Area -->
+            <div id="notes-preview-area" class="markdown-preview-content markdown-body">
+              <div class="empty-preview">
+                <i data-lucide="file-edit"></i>
+                <h3>尚未生成筆記</h3>
+                <p>在左側輸入或錄製逐字稿，然後點選上面的「透過 AI 整理筆記」按鈕，精美的 Markdown 學習筆記將會在此呈現。</p>
+              </div>
+            </div>
+
+            <!-- Raw Markdown Editor Area -->
+            <textarea id="notes-editor-area" class="markdown-raw-editor hidden" aria-label="Markdown 原始碼編輯區" placeholder="# 您的 Markdown 學習筆記會顯示在這裡..."></textarea>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- JavaScript Entry Point -->
+  <script src="app.js"></script>
+</body>
+</html>
