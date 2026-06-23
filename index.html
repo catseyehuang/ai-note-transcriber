@@ -199,6 +199,14 @@
               </button>
             </div>
 
+            <!-- Import Audio File -->
+            <div class="recorder-import" style="margin-top: -0.5rem; display: flex; gap: 0.5rem;">
+              <label for="audio-file-import" class="btn btn-secondary btn-sm" style="width: 100%; cursor: pointer;" title="匯入之前下載的音訊檔以進行轉錄">
+                <i data-lucide="upload"></i> 匯入本機音訊檔
+              </label>
+              <input type="file" id="audio-file-import" accept="audio/*" style="display: none;" />
+            </div>
+
             <!-- Download & Playback Controls (Shown after stop) -->
             <div id="audio-playback-container" class="playback-container hidden">
               <div class="playback-info">

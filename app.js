@@ -112,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
     transcribeResultTextarea: document.getElementById('transcribe-result-textarea'),
     btnCloseTranscribe: document.getElementById('btn-close-transcribe'),
     btnDiscardTranscribe: document.getElementById('btn-discard-transcribe'),
-    btnSaveTranscribe: document.getElementById('btn-save-transcribe')
+    btnSaveTranscribe: document.getElementById('btn-save-transcribe'),
+    audioFileImport: document.getElementById('audio-file-import')
   };
 
   // Canvas context
@@ -507,6 +508,29 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.aiLoadingOverlay.classList.add('hidden');
       }
     };
+  });
+
+  // --- Import Local Audio File ---
+  DOM.audioFileImport.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    state.audioBlob = file;
+    state.audioUrl = URL.createObjectURL(file);
+
+    // Load into audio player
+    DOM.audioPlayer.src = state.audioUrl;
+    DOM.audioPlayer.load();
+
+    // Populate Playback info
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    DOM.audioFileSize.textContent = `${sizeMB} MB`;
+    DOM.btnDownloadAudio.href = state.audioUrl;
+    DOM.btnDownloadAudio.download = file.name;
+
+    // Show container
+    DOM.audioPlaybackContainer.classList.remove('hidden');
+    showToast(`成功匯入音訊檔「${file.name}」！您可以進行播放或轉錄。`, 'success');
   });
 
   DOM.btnToggleKeyVisibility.addEventListener('click', () => {
