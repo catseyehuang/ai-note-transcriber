@@ -635,6 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const item = document.createElement('div');
       item.className = `session-item ${session.id === state.currentSessionId ? 'active' : ''}`;
       item.setAttribute('data-id', session.id);
+      item.setAttribute('title', '點擊切換，連按兩下可重命名此會話');
       
       const dateStr = new Date(session.created).toLocaleString('zh-TW', {
         month: '2-digit',
@@ -659,6 +660,18 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentSessionId = session.id;
         saveSessions();
         loadSessionToUI(session);
+      });
+
+      // Double click to rename session
+      const sessionInfo = item.querySelector('.session-info');
+      sessionInfo.addEventListener('dblclick', () => {
+        const newTitle = prompt('請輸入新的會話名稱：', session.title);
+        if (newTitle !== null && newTitle.trim() !== '') {
+          session.title = newTitle.trim();
+          saveSessions();
+          updateSidebarUI();
+          showToast('已修改會話名稱！', 'success');
+        }
       });
       
       // Delete session action
