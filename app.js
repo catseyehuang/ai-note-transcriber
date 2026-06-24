@@ -45,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
     apiConfigPanel: document.getElementById('api-config-panel'),
     helpModal: document.getElementById('help-modal'),
     btnCloseHelp: document.getElementById('btn-close-help'),
+    btnApiKeyHelp: document.getElementById('btn-api-key-help'),
+    apiKeyHelpModal: document.getElementById('api-key-help-modal'),
+    btnCloseApiHelp: document.getElementById('btn-close-api-help'),
+    btnConfirmApiHelp: document.getElementById('btn-confirm-api-help'),
     
     // API Config Drawer
     geminiApiKeyInput: document.getElementById('gemini-api-key'),
@@ -345,6 +349,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Gemini API Key Guide Modal listeners
+  if (DOM.btnApiKeyHelp) {
+    DOM.btnApiKeyHelp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      DOM.apiKeyHelpModal.classList.add('active');
+    });
+  }
+
+  if (DOM.btnCloseApiHelp) {
+    DOM.btnCloseApiHelp.addEventListener('click', () => {
+      DOM.apiKeyHelpModal.classList.remove('active');
+    });
+  }
+
+  if (DOM.btnConfirmApiHelp) {
+    DOM.btnConfirmApiHelp.addEventListener('click', () => {
+      DOM.apiKeyHelpModal.classList.remove('active');
+    });
+  }
+
+  if (DOM.apiKeyHelpModal) {
+    DOM.apiKeyHelpModal.addEventListener('click', (e) => {
+      if (e.target === DOM.apiKeyHelpModal) {
+        DOM.apiKeyHelpModal.classList.remove('active');
+      }
+    });
+  }
+
   // --- Rename Modal Actions ---
   const closeRenameModal = () => {
     DOM.renameModal.classList.remove('active');
@@ -429,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTextMetrics();
     
     closeTranscribeModal();
-    showToast('語音檔已成功轉錄並覆蓋原有逐字稿！', 'success');
+    showToast('已成功透過 AI 轉錄並覆蓋原有逐字稿！', 'success');
   });
 
   DOM.btnTranscribeAudio.addEventListener('click', () => {
@@ -447,13 +479,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show loading indicator
     DOM.aiLoadingOverlay.classList.remove('hidden');
-    DOM.loadingStatusText.textContent = 'AI 正在將錄音檔轉錄為逐字稿，這可能需要幾秒到半分鐘...';
+    DOM.loadingStatusText.textContent = 'AI 正在進行語音轉錄，這可能需要幾秒到半分鐘...';
 
     const reader = new FileReader();
     reader.readAsDataURL(state.audioBlob);
     reader.onloadend = async () => {
       const base64Data = reader.result.split(',')[1];
       try {
+        // Normalize MIME type to avoid Gemini routing it to the video pipeline (which expects video frames and fails with "0 Frames found" error)
+        let mimeType = state.audioBlob.type || 'audio/webm';
+        
+        // Strip parameters like codecs (e.g. "audio/webm;codecs=opus" -> "audio/webm")
+        if (mimeType.includes(';')) {
+          mimeType = mimeType.split(';')[0].trim();
+        }
+        
+        // Force webm types (including video/webm and audio/webm) to "audio/webm" to route to pure audio pipeline.
+        if (mimeType === 'video/webm' || mimeType.includes('webm')) {
+          mimeType = 'audio/webm';
+        }
+
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
         const response = await fetchWithRetry(apiUrl, {
           method: 'POST',
@@ -465,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
               parts: [
                 {
                   inlineData: {
-                    mimeType: state.audioBlob.type || 'audio/webm',
+                    mimeType: mimeType,
                     data: base64Data
                   }
                 },

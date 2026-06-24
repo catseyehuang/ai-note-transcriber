@@ -1493,3 +1493,33 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Gemini API Key Guide Help Button & Layout Styles */
+.config-title-flex {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.btn-help-circle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-help-circle:hover {
+  color: var(--color-secondary-light);
+  transform: scale(1.15);
+}
+
+.btn-help-circle i {
+  width: 18px;
+  height: 18px;
+}

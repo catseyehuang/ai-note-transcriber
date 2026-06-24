@@ -55,7 +55,12 @@
     <section id="api-config-panel" class="config-panel collapsed">
       <div class="config-content card">
         <div class="config-header">
-          <h3><i data-lucide="settings"></i> Gemini API 金鑰配置</h3>
+          <h3 class="config-title-flex">
+            <span class="title-text"><i data-lucide="settings"></i> Gemini API 金鑰配置</span>
+            <button id="btn-api-key-help" class="btn-help-circle" type="button" title="如何申請 Gemini API 金鑰？">
+              <i data-lucide="help-circle"></i>
+            </button>
+          </h3>
           <p>您的金鑰會安全地存在本機瀏覽器中，不經由任何第三方伺服器傳輸。</p>
         </div>
         <div class="config-body">
@@ -105,6 +110,60 @@
               <p>點選右下角的「複製至 Notion」，然後在您的 Notion 頁面中直接按下 <code>Ctrl + V</code> 貼上，Notion 會自動將 Markdown 解析為漂亮的區塊樣式！</p>
             </li>
           </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gemini API Key Guide Modal -->
+    <div id="api-key-help-modal" class="modal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h3><i data-lucide="help-circle"></i> 如何申請 Gemini API 金鑰？</h3>
+          <button id="btn-close-api-help" class="btn btn-icon"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="api-guide-container">
+            <p style="margin-bottom: 1.25rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6;">
+              請按照以下步驟免費申請您專屬的 Google Gemini API 金鑰 (API Key)：
+            </p>
+            <ol class="help-steps">
+              <li>
+                <strong>第一步：前往 Google AI Studio</strong>
+                <p>開啟瀏覽器，前往 <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" style="color: var(--color-secondary-light); text-decoration: underline;">Google AI Studio 官方網站</a>。</p>
+              </li>
+              <li>
+                <strong>第二步：登入 Google 帳號</strong>
+                <p>使用您的 Google 帳戶進行登入（建議使用個人帳戶，公司或學校帳戶可能會有權限限制）。</p>
+              </li>
+              <li>
+                <strong>第三步：建立 API 金鑰</strong>
+                <p>登入成功後，點擊左上角或頁面中央的 <strong style="color: #fff;">「Get API key」</strong>（獲取 API 金鑰）按鈕。</p>
+              </li>
+              <li>
+                <strong>第四步：建立金鑰專案</strong>
+                <p>點擊 <strong style="color: #fff;">「Create API key」</strong>，您可以選擇將其建立在現有的 Google Cloud 專案，或是點選 「Create API key in new project」 建立一個全新專案。</p>
+              </li>
+              <li>
+                <strong>第五步：複製並儲存金鑰</strong>
+                <p>金鑰生成後（格式為 <code>AIzaSy</code> 開頭的字串），點擊複製按鈕將其複製下來。</p>
+              </li>
+              <li>
+                <strong>第六步：配置回本系統</strong>
+                <p>回到本網頁，將金鑰貼入「Gemini API 金鑰配置」欄位中，然後點擊 <strong style="color: var(--color-success-light);">「儲存設定」</strong> 按鈕即大功告成！</p>
+              </li>
+            </ol>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(6, 182, 212, 0.08); border-left: 4px solid var(--color-secondary); border-radius: 4px; font-size: 0.85rem;">
+              <span style="display: flex; align-items: center; gap: 0.25rem; font-weight: bold; color: var(--color-secondary-light); margin-bottom: 0.25rem;">
+                <i data-lucide="info" style="width: 14px; height: 14px;"></i> 溫馨提示
+              </span>
+              <p style="color: var(--text-secondary); margin: 0; line-height: 1.45;">
+                目前 Gemini 2.5 Flash 提供每日免費額度（每分鐘限制 15 次請求），只要不超出免費配額限制，完全不需要支付任何費用，非常適合個人日常開會、課堂整理與筆記製作！
+              </p>
+            </div>
+          </div>
+          <div class="modal-actions-row" style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+            <button id="btn-confirm-api-help" class="btn btn-primary">我知道了</button>
+          </div>
         </div>
       </div>
     </div>
@@ -221,7 +280,7 @@
               </div>
               <!-- AI Transcription Button -->
               <button id="btn-transcribe-audio" class="btn btn-primary btn-glow-active" style="width: 100%; margin-top: 0.5rem;" title="利用 Gemini AI 將音訊轉錄成文字">
-                <i data-lucide="cpu"></i> 將語音檔轉錄成逐字稿
+                <i data-lucide="cpu"></i> 透過AI轉錄成逐字稿
               </button>
             </div>
           </div>
