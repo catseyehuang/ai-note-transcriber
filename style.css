@@ -1523,3 +1523,20 @@ body {
   width: 18px;
   height: 18px;
 }
+
+/* Sidebar Footer (Import/Export Backup) */
+.sidebar-footer {
+  padding: 1.25rem 1rem;
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  background: rgba(10, 12, 18, 0.25);
+}
+
+.sidebar-footer .btn {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.5rem;
+  gap: 0.35rem;
+}

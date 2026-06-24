@@ -219,6 +219,16 @@
         <div class="sidebar-body" id="session-list">
           <!-- 會話列表將由 JavaScript 動態載入 -->
         </div>
+        <!-- Backup Import/Export Footer -->
+        <div class="sidebar-footer">
+          <button id="btn-export-sessions" class="btn btn-secondary btn-sm" title="匯出所有會話紀錄備份 (.json)">
+            <i data-lucide="download"></i> 匯出備份
+          </button>
+          <button id="btn-import-sessions" class="btn btn-secondary btn-sm" title="匯入會話紀錄備份 (.json)">
+            <i data-lucide="upload"></i> 匯入備份
+          </button>
+          <input type="file" id="file-import-sessions" accept=".json" style="display: none;" />
+        </div>
       </aside>
 
       <!-- Main Workspace Grid -->

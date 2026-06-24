@@ -117,7 +117,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCloseTranscribe: document.getElementById('btn-close-transcribe'),
     btnDiscardTranscribe: document.getElementById('btn-discard-transcribe'),
     btnSaveTranscribe: document.getElementById('btn-save-transcribe'),
-    audioFileImport: document.getElementById('audio-file-import')
+    audioFileImport: document.getElementById('audio-file-import'),
+
+    // Backup Import/Export controls
+    btnExportSessions: document.getElementById('btn-export-sessions'),
+    btnImportSessions: document.getElementById('btn-import-sessions'),
+    fileImportSessions: document.getElementById('file-import-sessions')
   };
 
   // Canvas context
@@ -663,8 +668,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sizeMB = (state.audioBlob.size / (1024 * 1024)).toFixed(1);
         DOM.audioFileSize.textContent = `${sizeMB} MB`;
+        const currentSession = getCurrentSession();
         DOM.btnDownloadAudio.href = state.audioUrl;
-        DOM.btnDownloadAudio.download = `課堂錄音_${getFormattedDate()}.webm`;
+        DOM.btnDownloadAudio.download = `錄音_${currentSession.title}_${getFormattedDate(currentSession.created)}.webm`;
         
         DOM.audioPlaybackContainer.classList.remove('hidden');
         showToast('錄音完成！您可於播放器預覽或點擊下載存檔。', 'success');
@@ -778,10 +784,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
   }
 
-  function getFormattedDate() {
-    const now = new Date();
+  function getFormattedDate(timestamp) {
+    const date = timestamp ? new Date(timestamp) : new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    return `${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}`;
   }
 
   // --- Real-time Transcription & Stats ---
@@ -870,8 +876,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');
+    const session = getCurrentSession();
     a.href = url;
-    a.download = `${getCurrentSession().title}_逐字稿_${getFormattedDate()}.txt`;
+    a.download = `${session.title}_逐字稿_${getFormattedDate(session.created)}.txt`;
     document.body.appendChild(a);
     a.click();
     
@@ -895,6 +902,94 @@ document.addEventListener('DOMContentLoaded', () => {
     const session = getCurrentSession();
     session.customInstruction = DOM.customInstruction.value;
     saveSessions();
+  });
+
+  // --- Backup Import/Export Handlers ---
+  DOM.btnExportSessions.addEventListener('click', () => {
+    const sessionsData = localStorage.getItem('notes_assistant_sessions');
+    if (!sessionsData || JSON.parse(sessionsData).length === 0) {
+      showToast('無可用的會話紀錄可供匯出！', 'warning');
+      return;
+    }
+    
+    try {
+      const blob = new Blob([sessionsData], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AI筆記助理_歷史備份_${getFormattedDate()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast('歷史紀錄備份匯出成功！已下載 JSON 備份檔。', 'success');
+    } catch (err) {
+      console.error('Export backup failed:', err);
+      showToast(`匯出備份失敗：${err.message}`, 'error');
+    }
+  });
+
+  DOM.btnImportSessions.addEventListener('click', () => {
+    DOM.fileImportSessions.click();
+  });
+
+  DOM.fileImportSessions.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsText(file);
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) {
+          throw new Error('匯入檔案格式不正確，應為會話陣列。');
+        }
+        
+        const isValid = imported.every(s => s && typeof s === 'object' && s.id && s.title);
+        if (!isValid) {
+          throw new Error('備份檔案結構不完整，缺少必要欄位。');
+        }
+
+        if (confirm(`已偵測到備份檔案中含有 ${imported.length} 個會話紀錄。\n\n確定要將其匯入並合併至目前的會話歷史中嗎？\n(相同ID的會話將會被覆蓋更新)`)) {
+          let mergeCount = 0;
+          let newCount = 0;
+          
+          imported.forEach(impSession => {
+            const existingIdx = state.sessions.findIndex(s => s.id === impSession.id);
+            if (existingIdx > -1) {
+              state.sessions[existingIdx] = impSession;
+              mergeCount++;
+            } else {
+              state.sessions.push(impSession);
+              newCount++;
+            }
+          });
+          
+          // Sort sessions by creation time desc (newest first)
+          state.sessions.sort((a, b) => (b.created || 0) - (a.created || 0));
+          
+          // Select the first session
+          state.currentSessionId = state.sessions[0].id;
+          
+          saveSessions();
+          loadSessionToUI(getCurrentSession());
+          updateSidebarUI();
+          
+          showToast(`歷史紀錄匯入成功！共新增 ${newCount} 個會話，覆蓋更新 ${mergeCount} 個會話。`, 'success');
+        }
+      } catch (err) {
+        console.error('Import backup failed:', err);
+        showToast(`匯入備份失敗：${err.message} (請確認上傳的是本系統導出的 JSON 檔案)`, 'error');
+      } finally {
+        DOM.fileImportSessions.value = ''; // Reset input
+      }
+    };
   });
 
   // --- Session Management Functions ---
@@ -1277,9 +1372,10 @@ ${transcriptText}
     const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     
+    const session = getCurrentSession();
     const a = document.createElement('a');
     a.href = url;
-    a.download = `課堂學習筆記_${getFormattedDate()}.md`;
+    a.download = `${session.title}_智慧筆記_${getFormattedDate(session.created)}.md`;
     document.body.appendChild(a);
     a.click();
     
